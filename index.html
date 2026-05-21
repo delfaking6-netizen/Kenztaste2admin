@@ -239,7 +239,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // ============ LOAD DATA ============
 async function loadAll() {
-  const { data: cfg } = await sb.from('settings').select('*').eq('id',1).single();
+  const { data: cfg, error: cfgErr } = await sb.from('settings').select('*').eq('id',1).single();
+  if (cfgErr) { showToast('❌ Connexion Supabase échouée : ' + cfgErr.message); console.error(cfgErr); }
   if (cfg) {
     S.shopOpen = cfg.shop_open; S.closedMsg = cfg.closed_msg;
     S.slogan = cfg.slogan; S.whatsapp = cfg.whatsapp;
@@ -254,7 +255,18 @@ async function loadAll() {
 }
 
 async function saveProductToDB(p) {
-  await sb.from('products').upsert({ id:p.id, name:p.name, description:p.desc, price:p.price, promo:p.promo, category:p.category, emoji:p.emoji, img:p.img, badge:p.badge, hidden:p.hidden, sales:p.sales||0 });
+  const { error } = await sb.from('products').upsert({
+    id: p.id, name: p.name, description: p.desc,
+    price: p.price, promo: p.promo, category: p.category,
+    emoji: p.emoji, img: p.img, badge: p.badge,
+    hidden: p.hidden, sales: p.sales || 0
+  });
+  if (error) {
+    showToast('❌ Erreur : ' + error.message);
+    console.error('Supabase error:', error);
+    return false;
+  }
+  return true;
 }
 
 // ============ TABS ============
@@ -383,9 +395,11 @@ async function addProduct() {
     hidden: false, sales: 0
   };
   S.products.push(p);
-  await saveProductToDB(p);
-  showToast('✅ Produit ajouté !');
-  goToTab('products');
+  const ok = await saveProductToDB(p);
+  if (ok) {
+    showToast('✅ Produit ajouté dans Supabase !');
+    goToTab('products');
+  }
 }
 
 function editProd(id) {
